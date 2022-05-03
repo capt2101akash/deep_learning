@@ -204,6 +204,100 @@ def relu(Z):
     cache = Z 
     return A, cache
 
+####################### Logistic Regression ######################
+def initialize_with_zeros(dim):
+    w = np.zeros((dim, 1))
+    b = 0
+    
+    assert(w.shape == (dim, 1))
+    assert(isinstance(b, float) or isinstance(b, int))
+    
+    return w, b
+
+def log_sigmoid(z):
+    s = 1/(1+np.exp(-z))
+    return s
+
+def L(yhat, y):
+    loss = -(y*np.log(yhat)+(1-y)*np.log(1-yhat))
+    return loss
+
+def C(yhat, y):
+    m = y.shape[1]
+    cost = 1/m*np.sum(L(yhat, y))
+    return cost
+
+def propagate(w, b, X, Y):
+
+    m = X.shape[1]
+    # FORWARD PROPAGATION (FROM X TO COST)
+    A = log_sigmoid(np.dot(np.transpose(w), X) + b)                                  
+    cost = C(A, Y)                    
+    
+    
+    # BACKWARD PROPAGATION (TO FIND GRAD)
+    Dw = np.dot(X, (A - Y).T) / m
+    Db = np.sum(A - Y) / m
+
+    assert(Dw.shape == w.shape)
+    assert(Db.dtype == float)
+    cost = np.squeeze(cost)
+    assert(cost.shape == ())
+    
+    grads = {"Dw": Dw,
+             "Db": Db}
+    
+    return grads, cost
+
+
+def optimize_log(w, b, X, Y, num_iterations, learning_rate, print_cost = False):
+    
+    costs = []
+    
+    for i in range(num_iterations):
+        grads, cost = propagate(w, b, X, Y)
+
+        
+        # Retrieve derivatives from grads
+        Dw = grads["Dw"]
+        Db = grads["Db"]
+        
+        # update rule 
+        w = w - learning_rate*Dw
+        b = b - learning_rate*Db
+        
+        # Record the costs
+        if i % 100 == 0:
+            costs.append(cost)
+        
+        # Print the cost every 100 training iterations
+        if print_cost and i % 100 == 0:
+            print ("Cost after iteration %i: %f" %(i, cost))
+    
+    params = {"w": w,
+              "b": b}
+    
+    grads = {"Dw": Dw,
+             "Db": Db}
+    
+    return params, grads, costs
+
+def predict_log(w, b, X):
+    m = X.shape[1]
+    Y_prediction = np.zeros((1,m))
+    w = w.reshape(X.shape[0], 1)
+    
+    # Compute vector "A" predicting the probabilities of a cat being present in the picture
+    A = log_sigmoid(np.dot(w.T, X) + b)
+        
+    for i in range(A.shape[1]):  
+        # Convert probabilities A[0,i] to actual predictions p[0,i]
+        Y_prediction[0, i] = 1 if A[0, i] > 0.5 else 0
+    
+    assert(Y_prediction.shape == (1, m))
+    
+    return Y_prediction
+
 ############################ Shallow ##############################
 
 def layer_sizes(X, Y):
