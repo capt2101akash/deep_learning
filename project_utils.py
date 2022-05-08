@@ -3,6 +3,7 @@ import h5py
 import numpy as np
 import os
 
+from sklearn.model_selection import train_test_split
 data_dir = './dataset/dataset'
 total_np_x = list()
 total_np_y = list()
@@ -12,108 +13,71 @@ import time
 from PIL import Image
 
 def convert_to_h5():
-     data_dir = './dataset'
+     data_dir = './Data'
      total_np_x = list()
      total_np_y = list()
      total_np_log_x = list()
-     save_path = f'./dataset/full_data.h5'
-     import matplotlib.pyplot as plt
-     import time
-     from PIL import Image
+     save_path = f'./Data/full_data.h5'
      for dir in os.listdir(data_dir):
           count = 0
           for file in os.walk(os.path.join(data_dir, dir)):
+               # print(file[2])
                if len(file[2]) > 0:
                     print(file[0], len(file[2]))
                     for img_file in file[2]:
                          img_path = os.path.join(file[0], img_file)
                          img_f = Image.open(img_path)
+                         img_f = img_f.convert('RGB')
                          orig_img = np.asarray(img_f)
-                         resized = Image.fromarray(orig_img).resize(size=(80, 80))
+                         resized = Image.fromarray(orig_img).resize(size=(60, 60))
                          resized_array = np.asarray(resized)
-                         resized_squeezed = resized_array.reshape(80*80*3, 1)
+
                          resized_log = Image.fromarray(resized_array).resize(size = (2, 2))
                          resized_log_squeezed = np.asarray(resized_log)
-                         resized_log_squeezed = resized_log_squeezed.reshape(2*2*3, 1)
+                         try:
+                              resized_squeezed = resized_array.reshape(60*60*resized_array.shape[-1], 1)
+                              # print(f"{resized_array.shape},  Normal - {resized_squeezed.shape}")
+                              resized_log_squeezed = resized_log_squeezed.reshape(2*2*resized_array.shape[-1], 1)
+                         except Exception as e:
+                              print(e)
+                         
                          # print(resized_squeezed.shape)
                          total_np_x.append(resized_squeezed)
                          total_np_log_x.append(resized_log_squeezed)
-                         if 'cat' in img_file:
-                              total_np_y.append(0)
-                         else:
+                         cancer_type = file[0].split('\\')[-1]
+                         if 'adeno' in cancer_type or 'large' in cancer_type or 'squamous' in cancer_type:
                               total_np_y.append(1)
+                         else:
+                              total_np_y.append(0)
                
                          count += 1
-               if count % 1000:
+               if count % 100:
                     print(count)
                # break
           # break
 
-     total_np_x = np.squeeze(np.asarray(total_np_x), axis = 2)
-     total_np_y = np.squeeze(np.asarray(total_np_y))
-     print(np.asarray(total_np_log_x).shape)
-     total_np_log_x = np.squeeze(np.asarray(total_np_log_x), axis = 2)
-     hf = h5py.File(save_path, 'a') 
-     grp_x = hf.create_dataset('data_x', data = total_np_x)
-     grp_y = hf.create_dataset('data_y', data = total_np_y)
-     grp_x_log = hf.create_dataset('data_x_log', data = total_np_log_x)
+     total_np_x = np.asarray(np.squeeze(total_np_x, axis = 2))
+     total_np_y = np.asarray(total_np_y)
+     total_np_log_x = np.asarray(np.squeeze(total_np_log_x, axis = 2))
+     # print(total_np_log_x.shape, total_np_x.shape, total_np_y.shape)
+     with h5py.File(save_path, 'a')  as hf:
+          grp_x = hf.create_dataset('data_x', data = total_np_x)
+          grp_y = hf.create_dataset('data_y', data = total_np_y)
+          grp_x_log = hf.create_dataset('data_x_log', data = total_np_log_x)
 
-     hf.close()
      
      # print('hdf5 file size: %d bytes'%os.path.getsize(save_path))
 
 def load_data():
-    total_dataset = h5py.File('./dataset/full_data.h5', "r")
-
-    # Test Set
-    test_x_d = total_dataset["data_x"][1000:2000]
-    test_y_d = total_dataset["data_y"][1000:2000]
-
-    test_x_c = total_dataset["data_x"][:1000]
-    test_y_c = total_dataset["data_y"][:1000]
-
-    test_x = np.vstack((test_x_c, test_x_d))
-    test_y = np.append(test_y_c, test_y_d)
-
-
-    # Training Set
-    train_x_d = total_dataset["data_x"][7000:10000]
-    train_y_d = total_dataset["data_y"][7000:10000]
-
-    train_x_c = total_dataset["data_x"][2000:5000]
-    train_y_c = total_dataset["data_y"][2000:5000]
-
-    train_y = np.append(train_y_c, train_y_d)
-    train_x = np.vstack((train_x_c, train_x_d))
-
-
-    train_x_d_log = total_dataset["data_x_log"][7000:10000]
-
-    train_x_c_log = total_dataset["data_x_log"][2000:5000]
-
-    train_x_log = np.vstack((train_x_c_log, train_x_d_log))
-    # Validation Set
-
-    valid_x_d = total_dataset["data_x"][6000:7000]
-    valid_y_d = total_dataset["data_y"][6000:7000]
-
-    valid_x_c = total_dataset["data_x"][5000:6000]
-    valid_y_c = total_dataset["data_y"][5000:6000]
-
-    valid_y = np.append(valid_y_c, valid_y_d)
-    valid_x = np.vstack((valid_x_c, valid_x_d))
-
-    valid_d_log = total_dataset["data_x_log"][6000:7000]
-
-    valid_c_log = total_dataset["data_x_log"][5000:6000]
-
-    valid_x_log = np.vstack((valid_c_log, valid_d_log))
-
-    # assert train_x.shape == (6000, 10800, 1)
-    # assert test_x.shape == (2000, 10800, 1)
-    # assert valid_x.shape == (2000, 10800, 1)
+    with h5py.File('./Data/full_data.h5', "r") as f:
+        X = np.array(f["data_x"][:])
+        Y = np.array(f["data_y"][:])
+    train_x, test_x, train_y, test_y = train_test_split(X, Y, test_size=0.2, train_size=0.8, stratify=Y, random_state=11)    
     
-    return train_x, train_x_log, train_y, test_x, test_y, valid_x, valid_x_log, valid_y
+    train_x, valid_x, train_y, valid_y = train_test_split(train_x, train_y, test_size=0.25, train_size=0.75, stratify=train_y, random_state=11)  
+
+    return train_x, train_y, valid_x, valid_y, test_x, test_y
+    # return train_x, train_x_log, train_y, test_x, test_y, valid_x, valid_x_log, valid_y
 
 
 
@@ -289,9 +253,10 @@ def predict_log(w, b, X):
     
     # Compute vector "A" predicting the probabilities of a cat being present in the picture
     A = log_sigmoid(np.dot(w.T, X) + b)
-        
+    # print(A)
     for i in range(A.shape[1]):  
         # Convert probabilities A[0,i] to actual predictions p[0,i]
+        # print(A[0, 1])
         Y_prediction[0, i] = 1 if A[0, i] > 0.5 else 0
     
     assert(Y_prediction.shape == (1, m))
@@ -311,9 +276,9 @@ def layer_sizes(X, Y):
 def initialize_parameters(n_x, n_h, n_y):  
     np.random.seed(2) # we set up a seed so that your output matches my values although the initialization is random.
     
-    W1 = np.random.randn(n_h, n_x) * 0.01
+    W1 = np.random.randn(n_h, n_x) * 0.001
     b1 = np.zeros((n_h, 1))
-    W2 = np.random.randn(n_y, n_h) * 0.01
+    W2 = np.random.randn(n_y, n_h) * 0.001
     b2 = np.zeros((n_y, 1))
     
     assert (W1.shape == (n_h, n_x))
@@ -338,9 +303,9 @@ def forward_propagation(X, parameters):
     
     
     # Implement Forward Propagation to calculate A2 (probabilities)
-    Z1 = np.dot(W1, X) + b1
+    Z1 = W1.dot(X) + b1
     A1, cache = relu(Z1)
-    Z2 = np.dot(W2, A1) + b2
+    Z2 = W2.dot(A1) + b2
     A2, cache2 = sigmoid(Z2)
     
     assert(A2.shape == (1, X.shape[1]))
@@ -562,7 +527,7 @@ def compute_cost(AL, Y):
     
     return cost
 
-def linear_backward(dZ, cache):
+def linear_backward(dZ, cache, factor = None):
     """
     Implement the linear portion of backward propagation for a single layer (layer l)
 
@@ -577,8 +542,10 @@ def linear_backward(dZ, cache):
     """
     A_prev, W, b = cache
     m = A_prev.shape[1]
-
-    dW = 1./m * np.dot(dZ,A_prev.T)
+    if factor:
+        dW = 1./m * np.dot(dZ,A_prev.T) + (factor * W)
+    else:
+        dW = 1./m * np.dot(dZ,A_prev.T)
     db = 1./m * np.sum(dZ, axis = 1, keepdims = True)
     dA_prev = np.dot(W.T,dZ)
     
@@ -588,7 +555,7 @@ def linear_backward(dZ, cache):
     
     return dA_prev, dW, db
 
-def linear_activation_backward(dA, cache, activation):
+def linear_activation_backward(dA, cache, factor = None, activation= 'relu'):
     """
     Implement the backward propagation for the LINEAR->ACTIVATION layer.
     
@@ -606,15 +573,21 @@ def linear_activation_backward(dA, cache, activation):
     
     if activation == "relu":
         dZ = relu_backward(dA, activation_cache)
-        dA_prev, dW, db = linear_backward(dZ, linear_cache)
+        if factor:
+            dA_prev, dW, db = linear_backward(dZ, linear_cache, factor)
+        else:
+            dA_prev, dW, db = linear_backward(dZ, linear_cache)
         
     elif activation == "sigmoid":
         dZ = sigmoid_backward(dA, activation_cache)
-        dA_prev, dW, db = linear_backward(dZ, linear_cache)
+        if factor:
+            dA_prev, dW, db = linear_backward(dZ, linear_cache, factor)
+        else:
+            dA_prev, dW, db = linear_backward(dZ, linear_cache)
     
     return dA_prev, dW, db
 
-def L_model_backward(AL, Y, caches):
+def L_model_backward(AL, Y, caches, lambd = 0):
     """
     Implement the backward propagation for the [LINEAR->RELU] * (L-1) -> LINEAR -> SIGMOID group
     
@@ -641,12 +614,21 @@ def L_model_backward(AL, Y, caches):
     
     # Lth layer (SIGMOID -> LINEAR) gradients. Inputs: "AL, Y, caches". Outputs: "grads["dAL"], grads["dWL"], grads["dbL"]
     current_cache = caches[L-1]
-    grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, activation = "sigmoid")
+    if lambd == 0:
+        grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, activation = "sigmoid")
+    else:
+        factor = lambd/m
+        grads["dA" + str(L-1)], grads["dW" + str(L)], grads["db" + str(L)] = linear_activation_backward(dAL, current_cache, factor = factor, activation = "sigmoid")
     
     for l in reversed(range(L-1)):
         # lth layer: (RELU -> LINEAR) gradients.
         current_cache = caches[l]
-        dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, activation = "relu")
+        if lambd == 0:
+            dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, activation = "relu")
+        else:
+            factor = lambd/m
+            dA_prev_temp, dW_temp, db_temp = linear_activation_backward(grads["dA" + str(l + 1)], current_cache, factor = factor, activation = "relu")
+
         grads["dA" + str(l)] = dA_prev_temp
         grads["dW" + str(l + 1)] = dW_temp
         grads["db" + str(l + 1)] = db_temp
@@ -706,6 +688,54 @@ def predict_deep(X, y, parameters):
     #print results
     #print ("predictions: " + str(p))
     #print ("true labels: " + str(y))
-    print("Accuracy: "  + str(np.sum((p == y)/m)))
+    # print("Accuracy: "  + str(np.sum((p == y)/m)))
         
+    return np.sum((p == y)/m)
+
+def get_predictions(X, y, parameters):
+    
+    m = X.shape[1]
+    n = len(parameters) // 2 # number of layers in the neural network
+    p = np.zeros((1,m))
+    
+    # Forward propagation
+    probas, caches = L_model_forward(X, parameters)
+
+    
+    # convert probas to 0/1 predictions
+    for i in range(0, probas.shape[1]):
+        if probas[0,i] > 0.5:
+            p[0,i] = 1
+        else:
+            p[0,i] = 0
+    
     return p
+
+###### Regularization ######
+def compute_cost_with_regularization(A3, Y, parameters, lambd):
+    """
+    Implement the cost function with L2 regularization. See formula (2) above.
+    
+    Arguments:
+    A3 -- post-activation, output of forward propagation, of shape (output size, number of examples)
+    Y -- "true" labels vector, of shape (output size, number of examples)
+    parameters -- python dictionary containing parameters of the model
+    
+    Returns:
+    cost - value of the regularized loss function (formula (2))
+    """
+    m = Y.shape[1]
+    W1 = parameters["W1"]
+    W2 = parameters["W2"]
+    W3 = parameters["W3"]
+    
+    cost = compute_cost(A3, Y) # This gives you the cross-entropy part of the cost
+    ### START CODE HERE ### (approx. 1 line)
+    L2_regularization_cost = (1/m) * (lambd/2) * (np.sum(np.square(W1)) + np.sum(np.square(W2)) + np.sum(np.square(W3)))
+    ### END CODER HERE ###
+    
+    cost = cost + L2_regularization_cost
+    
+    return cost
+
+
